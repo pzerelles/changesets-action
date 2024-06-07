@@ -318,7 +318,6 @@ export async function runVersion({
 }: VersionOptions): Promise<RunVersionResult> {
   const octokit = setupOctokit(githubToken);
 
-  let repo = `${github.context.repo.owner}/${github.context.repo.repo}`;
   branch = branch ?? github.context.ref.replace("refs/heads/", "");
   let versionBranch = `changeset-release/${branch}`;
 
@@ -343,7 +342,6 @@ export async function runVersion({
   }
 
   let searchResultPromise = issuesAndPullRequests({
-    repo,
     versionBranch,
     branch,
     octokit,
@@ -458,12 +456,12 @@ type GiteaPullRequest = {
 };
 
 async function issuesAndPullRequests({
-  repo,
   versionBranch,
   branch,
   octokit,
 }: IssuesAndPullRequestsOptions) {
   if (process.env.GITEA_TOKEN && process.env.GITEA_API_URL) {
+    console.log(process.env);
     const url = `${process.env.GITEA_API_URL}/repos/${repo}/pulls?state=open`;
     const res = await fetch(url, {
       headers: {
@@ -485,6 +483,7 @@ async function issuesAndPullRequests({
     };
   }
 
+  let repo = `${github.context.repo.owner}/${github.context.repo.repo}`;
   let searchQuery = `repo:${repo}+state:open+head:${versionBranch}+base:${branch}+is:pull-request`;
   let searchResultPromise = octokit.rest.search.issuesAndPullRequests({
     q: searchQuery,
