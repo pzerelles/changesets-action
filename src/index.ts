@@ -50,8 +50,6 @@ const getOptionalInput = (name: string) => core.getInput(name) || undefined;
   core.setOutput("released", "false");
   core.setOutput("releasedPAckages", "[]");
 
-  console.log("flags", hasChangesets, hasPublishScript, hasReleaseScript);
-
   switch (true) {
     case !hasChangesets && !hasPublishScript && !hasReleaseScript:
       core.info("No changesets found!");
