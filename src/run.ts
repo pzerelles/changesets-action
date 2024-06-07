@@ -464,15 +464,13 @@ async function issuesAndPullRequests({
   octokit,
 }: IssuesAndPullRequestsOptions) {
   if (process.env.GITEA_TOKEN && process.env.GITEA_API_URL) {
-    const res = await fetch(
-      `${process.env.GITEA_API_URL}/repos/${repo}/pulls?state=open`,
-      {
-        headers: {
-          Authorization: `token ${process.env.GITEA_TOKEN}`,
-        },
-      }
-    );
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    const url = `${process.env.GITEA_API_URL}/repos/${repo}/pulls?state=open`;
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `token ${process.env.GITEA_TOKEN}`,
+      },
+    });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText} (${url})`);
     const pullRequests: GiteaPullRequest[] = await res.json();
     return {
       data: {
