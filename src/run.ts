@@ -25,32 +25,37 @@ import { throttling } from "@octokit/plugin-throttling";
 const MAX_CHARACTERS_PER_MESSAGE = 60000;
 
 const setupOctokit = (githubToken: string) => {
-  const options = getOctokitOptions(githubToken, {
-    baseUrl: "https://git.zerelles.com/api/v1",
-    throttle: {
-      onRateLimit: (retryAfter, options: any, octokit, retryCount) => {
-        core.warning(
-          `Request quota exhausted for request ${options.method} ${options.url}`
-        );
+  return new (GitHub.plugin(throttling))(
+    getOctokitOptions(githubToken, {
+      throttle: {
+        onRateLimit: (retryAfter, options: any, octokit, retryCount) => {
+          core.warning(
+            `Request quota exhausted for request ${options.method} ${options.url}`
+          );
 
-        if (retryCount <= 2) {
-          core.info(`Retrying after ${retryAfter} seconds!`);
-          return true;
-        }
-      },
-      onSecondaryRateLimit: (retryAfter, options: any, octokit, retryCount) => {
-        core.warning(
-          `SecondaryRateLimit detected for request ${options.method} ${options.url}`
-        );
+          if (retryCount <= 2) {
+            core.info(`Retrying after ${retryAfter} seconds!`);
+            return true;
+          }
+        },
+        onSecondaryRateLimit: (
+          retryAfter,
+          options: any,
+          octokit,
+          retryCount
+        ) => {
+          core.warning(
+            `SecondaryRateLimit detected for request ${options.method} ${options.url}`
+          );
 
-        if (retryCount <= 2) {
-          core.info(`Retrying after ${retryAfter} seconds!`);
-          return true;
-        }
+          if (retryCount <= 2) {
+            core.info(`Retrying after ${retryAfter} seconds!`);
+            return true;
+          }
+        },
       },
-    },
-  });
-  return new (GitHub.plugin(throttling))(options);
+    })
+  );
 };
 
 const createRelease = async (
@@ -337,9 +342,11 @@ export async function runVersion({
     });
   }
 
-  let searchQuery = `repo:${repo}+state:open+head:${versionBranch}+base:${branch}+is:pull-request`;
-  let searchResultPromise = octokit.rest.search.issuesAndPullRequests({
-    q: searchQuery,
+  let searchResultPromise = issuesAndPullRequests({
+    repo,
+    versionBranch,
+    branch,
+    octokit,
   });
   let changedPackages = await getChangedPackages(cwd, versionsByDirectory);
   let changedPackagesInfoPromises = Promise.all(
@@ -414,4 +421,75 @@ export async function runVersion({
       pullRequestNumber: pullRequest.number,
     };
   }
+}
+
+type IssuesAndPullRequestsOptions = {
+  repo: string;
+  versionBranch: string;
+  branch: string;
+  octokit: ReturnType<typeof setupOctokit>;
+};
+
+type GiteaPullRequest = {
+  id: string;
+  url: string;
+  number: number;
+  title: string;
+  body: string;
+  labels: string[];
+  state: "open" | "closed";
+  mergeable: boolean;
+  merged: boolean;
+  merge_commit_sha: string | null;
+  base: {
+    ref: string;
+    sha: string;
+    repo: {
+      full_name: string;
+    };
+  };
+  head: {
+    ref: string;
+    sha: string;
+    repo: {
+      full_name: string;
+    };
+  };
+};
+
+async function issuesAndPullRequests({
+  repo,
+  versionBranch,
+  branch,
+  octokit,
+}: IssuesAndPullRequestsOptions) {
+  if (process.env.GITEA_TOKEN && process.env.GITEA_API_URL) {
+    const res = await fetch(
+      `${process.env.GITEA_API_URL}/repos/${repo}/pulls?state=open`,
+      {
+        headers: {
+          Authorization: `token ${process.env.GITEA_TOKEN}`,
+        },
+      }
+    );
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    const pullRequests: GiteaPullRequest[] = await res.json();
+    return {
+      data: {
+        items: pullRequests.filter(
+          (pr) =>
+            pr.base.repo.full_name === repo &&
+            pr.head.repo.full_name === repo &&
+            pr.base.ref === branch &&
+            pr.head.ref === versionBranch
+        ),
+      },
+    };
+  }
+
+  let searchQuery = `repo:${repo}+state:open+head:${versionBranch}+base:${branch}+is:pull-request`;
+  let searchResultPromise = octokit.rest.search.issuesAndPullRequests({
+    q: searchQuery,
+  });
+  return searchResultPromise;
 }
