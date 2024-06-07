@@ -76,13 +76,32 @@ const createRelease = async (
       );
     }
 
-    await octokit.rest.repos.createRelease({
-      name: tagName,
-      tag_name: tagName,
-      body: changelogEntry.content,
-      prerelease: pkg.packageJson.version.includes("-"),
-      ...github.context.repo,
-    });
+    if (process.env.GITEA_API_URL) {
+      const url = `${process.env.GITEA_API_URL}/repos/${github.context.repo.owner}/${github.context.repo.repo}/releases`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `token ${process.env.GITHUB_TOKEN}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: tagName,
+          tag_name: tagName,
+          body: changelogEntry.content,
+          prerelease: pkg.packageJson.version.includes("-"),
+        }),
+      });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText} (${url})`);
+    } else {
+      await octokit.rest.repos.createRelease({
+        name: tagName,
+        tag_name: tagName,
+        body: changelogEntry.content,
+        prerelease: pkg.packageJson.version.includes("-"),
+        ...github.context.repo,
+      });
+    }
   } catch (err) {
     // if we can't find a changelog, the user has probably disabled changelogs
     if (
@@ -624,7 +643,7 @@ export async function runRelease({
   await gitUtils.pushTags();
 
   let { packages, tool } = await getPackages(cwd);
-  let releasedPackages: Package[] = [];
+  let releasedPackages: (Package & { tagName: string })[] = [];
 
   if (tool === "root" && packages.length === 0) {
     throw new Error(
@@ -641,8 +660,6 @@ export async function runRelease({
     }));
 
   if (releasablePackages.length > 0) {
-    console.log(tool, releasablePackages);
-
     if (process.env.GITEA_API_URL) {
       const url = `${process.env.GITEA_API_URL}/repos/${github.context.repo.owner}/${github.context.repo.repo}/releases`;
       const res = await fetch(url, {
@@ -652,8 +669,19 @@ export async function runRelease({
         },
       });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText} (${url})`);
-      const releases: GiteaRelease[] = await res.json();
-      console.log(releases);
+
+      const releasesByTagName = Object.fromEntries(
+        (await ((await res.json()) as Promise<GiteaRelease[]>)).map(
+          (release) => [release.tag_name, release]
+        )
+      );
+
+      for (const pkg of releasablePackages) {
+        const release = releasesByTagName[pkg.tagName];
+        if (!release) {
+          releasedPackages.push(pkg);
+        }
+      }
     }
 
     if (createGithubReleases) {
@@ -661,7 +689,7 @@ export async function runRelease({
         releasedPackages.map((pkg) =>
           createRelease(octokit, {
             pkg,
-            tagName: `${pkg.packageJson.name}@${pkg.packageJson.version}`,
+            tagName: pkg.tagName,
           })
         )
       );
