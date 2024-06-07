@@ -463,7 +463,7 @@ async function issuesAndPullRequests({
   branch,
   octokit,
 }: IssuesAndPullRequestsOptions) {
-  if (process.env.GITEA_TOKEN && process.env.GITEA_API_URL) {
+  if (process.env.GITEA_API_URL) {
     const url = `${process.env.GITEA_API_URL}/repos/${repo}/pulls?state=open`;
     const res = await fetch(url, {
       headers: {
