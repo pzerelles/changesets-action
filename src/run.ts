@@ -598,6 +598,16 @@ type ReleasedResult =
       released: false;
     };
 
+type GiteaRelease = {
+  id: string;
+  tag_name: string;
+  name: string;
+  body: string;
+  url: string;
+  draft: boolean;
+  prerelease: boolean;
+};
+
 export async function runRelease({
   script,
   githubToken,
@@ -616,25 +626,34 @@ export async function runRelease({
   let { packages, tool } = await getPackages(cwd);
   let releasedPackages: Package[] = [];
 
-  if (tool !== "root") {
-    let newTagRegex = /New tag:\s+(@[^/]+\/[^@]+|[^/]+)@([^\s]+)/;
-    let packagesByName = new Map(packages.map((x) => [x.packageJson.name, x]));
-    console.log("root", packages);
+  if (tool === "root" && packages.length === 0) {
+    throw new Error(
+      `No package found.` +
+        "This is probably a bug in the action, please open an issue"
+    );
+  }
 
-    /*for (let line of changesetPublishOutput.stdout.split("\n")) {
-      let match = line.match(newTagRegex);
-      if (match === null) {
-        continue;
-      }
-      let pkgName = match[1];
-      let pkg = packagesByName.get(pkgName);
-      if (pkg === undefined) {
-        throw new Error(
-          `Package "${pkgName}" not found.` +
-            "This is probably a bug in the action, please open an issue"
-        );
-      }
-      releasedPackages.push(pkg);
+  const releasablePackages = packages
+    .filter(({ packageJson }) => !packageJson.private)
+    .map((pkg) => ({
+      ...pkg,
+      tagName: `${pkg.packageJson.name}@${pkg.packageJson.version}`,
+    }));
+
+  if (releasablePackages.length > 0) {
+    console.log(tool, releasablePackages);
+
+    if (process.env.GITEA_API_URL) {
+      const url = `${process.env.GITEA_API_URL}/repos/${github.context.repo.owner}/${github.context.repo.repo}/releases`;
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `token ${process.env.GITHUB_TOKEN}`,
+          Accept: "application/json",
+        },
+      });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText} (${url})`);
+      const releases: GiteaRelease[] = await res.json();
+      console.log(releases);
     }
 
     if (createGithubReleases) {
@@ -646,32 +665,7 @@ export async function runRelease({
           })
         )
       );
-    }*/
-  } else {
-    if (packages.length === 0) {
-      throw new Error(
-        `No package found.` +
-          "This is probably a bug in the action, please open an issue"
-      );
     }
-    console.log("root", packages);
-    /*let pkg = packages[0];
-    let newTagRegex = /New tag:/;
-
-    for (let line of changesetPublishOutput.stdout.split("\n")) {
-      let match = line.match(newTagRegex);
-
-      if (match) {
-        releasedPackages.push(pkg);
-        if (createGithubReleases) {
-          await createRelease(octokit, {
-            pkg,
-            tagName: `v${pkg.packageJson.version}`,
-          });
-        }
-        break;
-      }
-    }*/
   }
 
   if (releasedPackages.length) {
