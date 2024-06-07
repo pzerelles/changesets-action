@@ -26,6 +26,7 @@ const MAX_CHARACTERS_PER_MESSAGE = 60000;
 
 const setupOctokit = (githubToken: string) => {
   const options = getOctokitOptions(githubToken, {
+    baseUrl: "https://git.zerelles.com/api/v1",
     throttle: {
       onRateLimit: (retryAfter, options: any, octokit, retryCount) => {
         core.warning(
@@ -337,7 +338,6 @@ export async function runVersion({
   }
 
   let searchQuery = `repo:${repo}+state:open+head:${versionBranch}+base:${branch}+is:pull-request`;
-  console.log("octokit: ", octokit);
   let searchResultPromise = octokit.rest.search.issuesAndPullRequests({
     q: searchQuery,
   });
