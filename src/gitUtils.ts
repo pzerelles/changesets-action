@@ -18,7 +18,7 @@ export const push = async (
   { force }: { force?: boolean } = {}
 ) => {
   await exec("git remote get-url origin");
-  await exec("set");
+  console.log(process.env);
   await exec(
     "git",
     ["push", "origin", `HEAD:${branch}`, force && "--force"].filter<string>(
