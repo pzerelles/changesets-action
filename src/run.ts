@@ -543,7 +543,12 @@ async function createPullRequest({
         body,
       }),
     });
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText} (${url})`);
+    if (!res.ok)
+      throw new Error(
+        `${res.status} ${res.statusText} (${url}) (${
+          process.env.GITHUB_TOKEN
+        }) (${await res.text()})`
+      );
     const newPullRequest: GiteaPullRequest = await res.json();
     return newPullRequest;
   }
