@@ -1,11 +1,7 @@
 import { exec, getExecOutput } from "@actions/exec";
 
 export const setupUser = async () => {
-  await exec("git", [
-    "config",
-    "user.name",
-    `"github-actions[bot]"`,
-  ]);
+  await exec("git", ["config", "user.name", `"github-actions[bot]"`]);
   await exec("git", [
     "config",
     "user.email",
@@ -21,6 +17,8 @@ export const push = async (
   branch: string,
   { force }: { force?: boolean } = {}
 ) => {
+  await exec("git remote get-url origin");
+  await exec("set");
   await exec(
     "git",
     ["push", "origin", `HEAD:${branch}`, force && "--force"].filter<string>(
