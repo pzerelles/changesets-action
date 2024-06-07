@@ -467,7 +467,7 @@ async function issuesAndPullRequests({
     const url = `${process.env.GITEA_API_URL}/repos/${repo}/pulls?state=open`;
     const res = await fetch(url, {
       headers: {
-        Authorization: `token ${process.env.GITEA_TOKEN}`,
+        Authorization: `token ${process.env.GITHUB_TOKEN}`,
       },
     });
     if (!res.ok) throw new Error(`${res.status} ${res.statusText} (${url})`);
