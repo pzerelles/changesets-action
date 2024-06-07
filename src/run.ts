@@ -606,9 +606,10 @@ export async function runRelease({
 }: ReleaseOptions): Promise<ReleasedResult> {
   const octokit = setupOctokit(githubToken);
 
-  let [releaseCommand, ...releaseArgs] = script.split(/\s+/);
-
-  if (releaseCommand) await getExecOutput(releaseCommand, releaseArgs, { cwd });
+  if (script) {
+    let [releaseCommand, ...releaseArgs] = script.split(/\s+/);
+    await getExecOutput(releaseCommand, releaseArgs, { cwd });
+  }
 
   await gitUtils.pushTags();
 
