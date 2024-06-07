@@ -395,7 +395,7 @@ export async function runVersion({
 
   if (searchResult.data.items.length === 0) {
     core.info("creating pull request");
-    const newPullRequest = createPullRequest({
+    const newPullRequest = await createPullRequest({
       base: branch,
       head: versionBranch,
       title: finalPrTitle,
@@ -410,11 +410,11 @@ export async function runVersion({
     const [pullRequest] = searchResult.data.items;
 
     core.info(`updating found pull request #${pullRequest.number}`);
-    await octokit.rest.pulls.update({
+    await updatePullRequest({
       pull_number: pullRequest.number,
       title: finalPrTitle,
       body: prBody,
-      ...github.context.repo,
+      octokit,
     });
 
     return {
@@ -537,4 +537,45 @@ async function createPullRequest({
     ...github.context.repo,
   });
   return newPullRequest;
+}
+
+type UpdatePullRequestOptions = {
+  pull_number: number;
+  title: string;
+  body: string;
+  octokit: ReturnType<typeof setupOctokit>;
+};
+
+async function updatePullRequest({
+  pull_number,
+  title,
+  body,
+  octokit,
+}: UpdatePullRequestOptions) {
+  if (process.env.GITEA_API_URL) {
+    const url = `${process.env.GITEA_API_URL}/repos/${github.context.repo.owner}/${github.context.repo.repo}/pulls/${pull_number}`;
+    const res = await fetch(url, {
+      method: "PATCH",
+      headers: {
+        Authorization: `token ${process.env.GITHUB_TOKEN}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        title,
+        body,
+      }),
+    });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText} (${url})`);
+    const pullRequest: GiteaPullRequest = await res.json();
+    return pullRequest;
+  }
+
+  const pullRequest = await octokit.rest.pulls.update({
+    pull_number,
+    title,
+    body,
+    ...github.context.repo,
+  });
+  return pullRequest;
 }
