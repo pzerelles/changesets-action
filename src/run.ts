@@ -529,7 +529,7 @@ async function createPullRequest({
 }: CreatePullRequestOptions) {
   if (process.env.GITEA_API_URL) {
     const url = `${process.env.GITEA_API_URL}/repos/${github.context.repo.owner}/${github.context.repo.repo}/pulls`;
-    const res = await fetch(url, {
+    const params = {
       method: "POST",
       headers: {
         Authorization: `token ${process.env.GITHUB_TOKEN}`,
@@ -542,12 +542,15 @@ async function createPullRequest({
         title,
         body,
       }),
-    });
+    };
+    const res = await fetch(url, params);
     if (!res.ok)
       throw new Error(
-        `${res.status} ${res.statusText} (${url}) (${
-          process.env.GITHUB_TOKEN
-        }) (${await res.text()})`
+        `${res.status} ${res.statusText} (${url}) (${JSON.stringify(
+          params,
+          null,
+          2
+        )}) (${await res.text()})`
       );
     const newPullRequest: GiteaPullRequest = await res.json();
     return newPullRequest;
