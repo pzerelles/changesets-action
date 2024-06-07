@@ -25,37 +25,32 @@ import { throttling } from "@octokit/plugin-throttling";
 const MAX_CHARACTERS_PER_MESSAGE = 60000;
 
 const setupOctokit = (githubToken: string) => {
-  return new (GitHub.plugin(throttling))(
-    getOctokitOptions(githubToken, {
-      throttle: {
-        onRateLimit: (retryAfter, options: any, octokit, retryCount) => {
-          core.warning(
-            `Request quota exhausted for request ${options.method} ${options.url}`
-          );
+  const options = getOctokitOptions(githubToken, {
+    throttle: {
+      onRateLimit: (retryAfter, options: any, octokit, retryCount) => {
+        core.warning(
+          `Request quota exhausted for request ${options.method} ${options.url}`
+        );
 
-          if (retryCount <= 2) {
-            core.info(`Retrying after ${retryAfter} seconds!`);
-            return true;
-          }
-        },
-        onSecondaryRateLimit: (
-          retryAfter,
-          options: any,
-          octokit,
-          retryCount
-        ) => {
-          core.warning(
-            `SecondaryRateLimit detected for request ${options.method} ${options.url}`
-          );
-
-          if (retryCount <= 2) {
-            core.info(`Retrying after ${retryAfter} seconds!`);
-            return true;
-          }
-        },
+        if (retryCount <= 2) {
+          core.info(`Retrying after ${retryAfter} seconds!`);
+          return true;
+        }
       },
-    })
-  );
+      onSecondaryRateLimit: (retryAfter, options: any, octokit, retryCount) => {
+        core.warning(
+          `SecondaryRateLimit detected for request ${options.method} ${options.url}`
+        );
+
+        if (retryCount <= 2) {
+          core.info(`Retrying after ${retryAfter} seconds!`);
+          return true;
+        }
+      },
+    },
+  });
+  console.log("Octokit options:", options);
+  return new (GitHub.plugin(throttling))(options);
 };
 
 const createRelease = async (
