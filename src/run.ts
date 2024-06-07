@@ -395,12 +395,12 @@ export async function runVersion({
 
   if (searchResult.data.items.length === 0) {
     core.info("creating pull request");
-    const { data: newPullRequest } = await octokit.rest.pulls.create({
+    const newPullRequest = createPullRequest({
       base: branch,
       head: versionBranch,
       title: finalPrTitle,
       body: prBody,
-      ...github.context.repo,
+      octokit,
     });
 
     return {
@@ -468,6 +468,7 @@ async function issuesAndPullRequests({
     const res = await fetch(url, {
       headers: {
         Authorization: `token ${process.env.GITHUB_TOKEN}`,
+        Accept: "application/json",
       },
     });
     if (!res.ok) throw new Error(`${res.status} ${res.statusText} (${url})`);
@@ -490,4 +491,50 @@ async function issuesAndPullRequests({
     q: searchQuery,
   });
   return searchResultPromise;
+}
+
+type CreatePullRequestOptions = {
+  base: string;
+  head: string;
+  title: string;
+  body: string;
+  octokit: ReturnType<typeof setupOctokit>;
+};
+
+async function createPullRequest({
+  base,
+  head,
+  title,
+  body,
+  octokit,
+}: CreatePullRequestOptions) {
+  if (process.env.GITEA_API_URL) {
+    const url = `${process.env.GITEA_API_URL}/repos/${github.context.repo.owner}/${github.context.repo.repo}/pulls`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `token ${process.env.GITHUB_TOKEN}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        base,
+        head,
+        title,
+        body,
+      }),
+    });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText} (${url})`);
+    const newPullRequest: GiteaPullRequest = await res.json();
+    return newPullRequest;
+  }
+
+  const { data: newPullRequest } = await octokit.rest.pulls.create({
+    base,
+    head,
+    title,
+    body,
+    ...github.context.repo,
+  });
+  return newPullRequest;
 }
