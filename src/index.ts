@@ -54,7 +54,7 @@ const getOptionalInput = (name: string) => core.getInput(name) || undefined;
 
   switch (true) {
     case !hasChangesets && !hasPublishScript && !hasReleaseScript:
-      core.info("No changesets found");
+      core.info("No changesets found!");
       return;
     case !hasChangesets && hasPublishScript: {
       core.info(
