@@ -7,7 +7,7 @@ import readChangesetState from "./readChangesetState";
 const getOptionalInput = (name: string) => core.getInput(name) || undefined;
 
 (async () => {
-  let githubToken = process.env.GITHUB_TOKEN || process.env.GITEA_TOKEN;
+  let githubToken = process.env.GITHUB_TOKEN;
 
   if (!githubToken) {
     core.setFailed("Please add the GITHUB_TOKEN to the changesets action");

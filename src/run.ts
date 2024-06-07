@@ -460,12 +460,12 @@ async function issuesAndPullRequests({
   branch,
   octokit,
 }: IssuesAndPullRequestsOptions) {
-  if (process.env.GITEA_TOKEN && process.env.GITEA_API_URL) {
+  if (process.env.GITEA_API_URL) {
     console.log(process.env);
-    const url = `${process.env.GITEA_API_URL}/repos/${repo}/pulls?state=open`;
+    const url = `${process.env.GITEA_API_URL}/repos/${process.env.GITHUB_ACTION_REPOSITORY}/pulls?state=open`;
     const res = await fetch(url, {
       headers: {
-        Authorization: `token ${process.env.GITEA_TOKEN}`,
+        Authorization: `token ${process.env.GITHUB_TOKEN}`,
       },
     });
     if (!res.ok) throw new Error(`${res.status} ${res.statusText} (${url})`);
