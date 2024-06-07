@@ -47,6 +47,10 @@ const getOptionalInput = (name: string) => core.getInput(name) || undefined;
   core.setOutput("published", "false");
   core.setOutput("publishedPackages", "[]");
   core.setOutput("hasChangesets", String(hasChangesets));
+  core.setOutput("released", "false");
+  core.setOutput("releasedPAckages", "[]");
+
+  console.log("flags", hasChangesets, hasPublishScript, hasReleaseScript);
 
   switch (true) {
     case !hasChangesets && !hasPublishScript && !hasReleaseScript:
@@ -94,8 +98,13 @@ const getOptionalInput = (name: string) => core.getInput(name) || undefined;
 
       if (result.published) {
         core.setOutput("published", "true");
+        core.setOutput("released", "true");
         core.setOutput(
           "publishedPackages",
+          JSON.stringify(result.publishedPackages)
+        );
+        core.setOutput(
+          "releasedPackages",
           JSON.stringify(result.publishedPackages)
         );
       }
