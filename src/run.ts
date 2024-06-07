@@ -579,3 +579,109 @@ async function updatePullRequest({
   });
   return pullRequest;
 }
+
+type ReleaseOptions = {
+  script: string;
+  githubToken: string;
+  createGithubReleases: boolean;
+  cwd?: string;
+};
+
+type ReleasedPackage = { name: string; version: string };
+
+type ReleasedResult =
+  | {
+      released: true;
+      releasedPackages: ReleasedPackage[];
+    }
+  | {
+      released: false;
+    };
+
+export async function runRelease({
+  script,
+  githubToken,
+  createGithubReleases,
+  cwd = process.cwd(),
+}: ReleaseOptions): Promise<ReleasedResult> {
+  const octokit = setupOctokit(githubToken);
+
+  let [releaseCommand, ...releaseArgs] = script.split(/\s+/);
+
+  if (releaseCommand) await getExecOutput(releaseCommand, releaseArgs, { cwd });
+
+  await gitUtils.pushTags();
+
+  let { packages, tool } = await getPackages(cwd);
+  let releasedPackages: Package[] = [];
+
+  if (tool !== "root") {
+    let newTagRegex = /New tag:\s+(@[^/]+\/[^@]+|[^/]+)@([^\s]+)/;
+    let packagesByName = new Map(packages.map((x) => [x.packageJson.name, x]));
+    console.log("root", packages);
+
+    /*for (let line of changesetPublishOutput.stdout.split("\n")) {
+      let match = line.match(newTagRegex);
+      if (match === null) {
+        continue;
+      }
+      let pkgName = match[1];
+      let pkg = packagesByName.get(pkgName);
+      if (pkg === undefined) {
+        throw new Error(
+          `Package "${pkgName}" not found.` +
+            "This is probably a bug in the action, please open an issue"
+        );
+      }
+      releasedPackages.push(pkg);
+    }
+
+    if (createGithubReleases) {
+      await Promise.all(
+        releasedPackages.map((pkg) =>
+          createRelease(octokit, {
+            pkg,
+            tagName: `${pkg.packageJson.name}@${pkg.packageJson.version}`,
+          })
+        )
+      );
+    }*/
+  } else {
+    if (packages.length === 0) {
+      throw new Error(
+        `No package found.` +
+          "This is probably a bug in the action, please open an issue"
+      );
+    }
+    console.log("root", packages);
+    /*let pkg = packages[0];
+    let newTagRegex = /New tag:/;
+
+    for (let line of changesetPublishOutput.stdout.split("\n")) {
+      let match = line.match(newTagRegex);
+
+      if (match) {
+        releasedPackages.push(pkg);
+        if (createGithubReleases) {
+          await createRelease(octokit, {
+            pkg,
+            tagName: `v${pkg.packageJson.version}`,
+          });
+        }
+        break;
+      }
+    }*/
+  }
+
+  if (releasedPackages.length) {
+    return {
+      released: true,
+      releasedPackages: releasedPackages.map((pkg) => ({
+        name: pkg.packageJson.name,
+        version: pkg.packageJson.version,
+      })),
+    };
+  }
+
+  return { released: false };
+}

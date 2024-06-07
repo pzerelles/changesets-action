@@ -1,7 +1,7 @@
 import * as core from "@actions/core";
 import fs from "fs-extra";
 import * as gitUtils from "./gitUtils";
-import { runPublish, runVersion } from "./run";
+import { runPublish, runVersion, runRelease } from "./run";
 import readChangesetState from "./readChangesetState";
 
 const getOptionalInput = (name: string) => core.getInput(name) || undefined;
@@ -36,18 +36,20 @@ const getOptionalInput = (name: string) => core.getInput(name) || undefined;
   let { changesets } = await readChangesetState();
 
   let publishScript = core.getInput("publish");
+  let releaseScript = core.getInput("release");
   let hasChangesets = changesets.length !== 0;
   const hasNonEmptyChangesets = changesets.some(
     (changeset) => changeset.releases.length > 0
   );
   let hasPublishScript = !!publishScript;
+  let hasReleaseScript = !!releaseScript;
 
   core.setOutput("published", "false");
   core.setOutput("publishedPackages", "[]");
   core.setOutput("hasChangesets", String(hasChangesets));
 
   switch (true) {
-    case !hasChangesets && !hasPublishScript:
+    case !hasChangesets && !hasPublishScript && !hasReleaseScript:
       core.info("No changesets found");
       return;
     case !hasChangesets && hasPublishScript: {
@@ -95,6 +97,24 @@ const getOptionalInput = (name: string) => core.getInput(name) || undefined;
         core.setOutput(
           "publishedPackages",
           JSON.stringify(result.publishedPackages)
+        );
+      }
+      return;
+    }
+    case !hasChangesets && hasReleaseScript: {
+      core.info("No changesets found, attempting to create release");
+
+      const result = await runRelease({
+        script: releaseScript,
+        githubToken,
+        createGithubReleases: core.getBooleanInput("createGithubReleases"),
+      });
+
+      if (result.released) {
+        core.setOutput("released", "true");
+        core.setOutput(
+          "releasedPackages",
+          JSON.stringify(result.releasedPackages)
         );
       }
       return;
