@@ -49,7 +49,6 @@ const setupOctokit = (githubToken: string) => {
       },
     },
   });
-  console.log("Octokit options:", options);
   return new (GitHub.plugin(throttling))(options);
 };
 
@@ -338,6 +337,7 @@ export async function runVersion({
   }
 
   let searchQuery = `repo:${repo}+state:open+head:${versionBranch}+base:${branch}+is:pull-request`;
+  console.log("octokit: ", octokit);
   let searchResultPromise = octokit.rest.search.issuesAndPullRequests({
     q: searchQuery,
   });
